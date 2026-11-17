@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Intelligent Login Monitoring (ILM) - Ant build.
+
+    ant resolve        download libraries (once, or after changing a version)
+    ant test           run the detection engine on generated demo data (no Tomcat or database needed)
+    ant war            build dist/ilm.war
+    ant deploy         copy the WAR and the PostgreSQL driver into Tomcat
+    ant demo-data      write sample files into demo-data/
+    ant hash-password  create a password hash for a local account
+    ant clean
+-->
+<project name="ilm" default="war" basedir=".">
+    <property file="build.properties"/>
+    <property name="src" location="src"/>
+    <property name="web" location="web"/>
+    <property name="build" location="build"/>
+    <property name="classes" location="${build}/classes"/>
+    <property name="dist" location="dist"/>
+    <property name="lib.runtime" location="lib/runtime"/>
+    <property name="lib.tomcat" location="lib/tomcat"/>
+    <property name="lib.webjars" location="lib/webjars"/>
+    <property name="vendor" location="${web}/assets/vendor"/>
+
+    <!-- Download one jar and check it against the repository's SHA-1 file. -->
+    <macrodef name="fetch">
+        <attribute name="group"/>
+        <attribute name="artifact"/>
+        <attribute name="version"/>
+        <attribute name="todir"/>
+        <sequential>
+            <local name="jar.ok"/>
+            <local name="sha.expected"/>
+            <mkdir dir="@{todir}"/>
+            <get src="${maven.repo}/@{group}/@{artifact}/@{version}/@{artifact}-@{version}.jar"
+                 dest="@{todir}/@{artifact}-@{version}.jar" skipexisting="true" verbose="false"/>
+            <get src="${maven.repo}/@{group}/@{artifact}/@{version}/@{artifact}-@{version}.jar.sha1"
+                 dest="${build}/sha1/@{artifact}-@{version}.jar.sha1" skipexisting="true" verbose="false"/>
+            <loadfile property="sha.expected" srcFile="${build}/sha1/@{artifact}-@{version}.jar.sha1">
+                <filterchain><tokenfilter><replaceregex pattern="^([0-9a-fA-F]{40}).*$" replace="\1" flags="s"/></tokenfilter><striplinebreaks/></filterchain>
+            </loadfile>
+            <checksum file="@{todir}/@{artifact}-@{version}.jar" algorithm="SHA-1" property="${sha.expected}" verifyProperty="jar.ok"/>
+            <fail message="Checksum mismatch for @{artifact}-@{version}.jar. Delete the file and run 'ant resolve' again; if it repeats, do not use this jar.">
+                <condition><isfalse value="${jar.ok}"/></condition>
+            </fail>
+        </sequential>
+    </macrodef>
+
+    <target name="resolve" description="Download libraries and Bootstrap">
+        <mkdir dir="${build}/sha1"/>
+        <fetch group="org/springframework" artifact="spring-core" version="${spring.version}" todir="${lib.runtime}"/>
+        <fetch group="org/springframework" artifact="spring-beans" version="${spring.version}" todir="${lib.runtime}"/>
+        <fetch group="org/springframework" artifact="spring-context" version="${spring.version}" todir="${lib.runtime}"/>
+        <fetch group="org/springframework" artifact="spring-aop" version="${spring.version}" todir="${lib.runtime}"/>
+        <fetch group="org/springframework" artifact="spring-expression" version="${spring.version}" todir="${lib.runtime}"/>
+        <fetch group="org/springframework" artifact="spring-web" version="${spring.version}" todir="${lib.runtime}"/>
+        <fetch group="org/springframework" artifact="spring-webmvc" version="${spring.version}" todir="${lib.runtime}"/>
+        <fetch group="org/springframework/security" artifact="spring-security-core" version="${spring.security.version}" todir="${lib.runtime}"/>
+        <fetch group="org/springframework/security" artifact="spring-security-crypto" version="${spring.security.version}" todir="${lib.runtime}"/>
+        <fetch group="org/springframework/security" artifact="spring-security-config" version="${spring.security.version}" todir="${lib.runtime}"/>
+        <fetch group="org/springframework/security" artifact="spring-security-web" version="${spring.security.version}" todir="${lib.runtime}"/>
+        <fetch group="io/micrometer" artifact="micrometer-observation" version="${micrometer.version}" todir="${lib.runtime}"/>
+        <fetch group="io/micrometer" artifact="micrometer-commons" version="${micrometer.version}" todir="${lib.runtime}"/>
+        <fetch group="commons-logging" artifact="commons-logging" version="${commons.logging.version}" todir="${lib.runtime}"/>
+        <fetch group="org/jspecify" artifact="jspecify" version="${jspecify.version}" todir="${lib.runtime}"/>
+        <fetch group="jakarta/servlet/jsp/jstl" artifact="jakarta.servlet.jsp.jstl-api" version="${jstl.api.version}" todir="${lib.runtime}"/>
+        <fetch group="org/glassfish/web" artifact="jakarta.servlet.jsp.jstl" version="${jstl.impl.version}" todir="${lib.runtime}"/>
+        <fetch group="jakarta/mail" artifact="jakarta.mail-api" version="${mail.api.version}" todir="${lib.runtime}"/>
+        <fetch group="org/eclipse/angus" artifact="angus-mail" version="${angus.mail.version}" todir="${lib.runtime}"/>
+        <fetch group="jakarta/activation" artifact="jakarta.activation-api" version="${activation.api.version}" todir="${lib.runtime}"/>
+        <fetch group="org/eclipse/angus" artifact="angus-activation" version="${angus.activation.version}" todir="${lib.runtime}"/>
+        <!-- The JDBC driver goes into Tomcat's own lib folder (Tomcat owns the connection pool), not into the WAR. -->
+        <fetch group="org/postgresql" artifact="postgresql" version="${postgresql.version}" todir="${lib.tomcat}"/>
+        <!-- Bootstrap CSS/JS are served from this application: no CDN, works without internet. -->
+        <fetch group="org/webjars" artifact="bootstrap" version="${bootstrap.version}" todir="${lib.webjars}"/>
+        <mkdir dir="${vendor}"/>
+        <unzip src="${lib.webjars}/bootstrap-${bootstrap.version}.jar" dest="${vendor}" overwrite="true">
+            <patternset>
+                <include name="META-INF/resources/webjars/bootstrap/${bootstrap.version}/css/bootstrap.min.css"/>
+                <include name="META-INF/resources/webjars/bootstrap/${bootstrap.version}/js/bootstrap.bundle.min.js"/>
+            </patternset>
+            <mapper type="flatten"/>
+        </unzip>
+        <echo message="Libraries are in lib/. Bootstrap is in web/assets/vendor."/>
+    </target>
+
+    <target name="compile-core" description="Compile the detection engine only (plain Java, no libraries)">
+        <mkdir dir="${build}/core"/>
+        <javac srcdir="${src}" destdir="${build}/core" includes="com/ilm/core/**" release="21" encoding="UTF-8" includeantruntime="false" debug="true">
+            <compilerarg value="-Xlint:all"/>
+        </javac>
+    </target>
+
+    <target name="demo-data" depends="compile-core" description="Write made-up sample files into demo-data/">
+        <java classname="com.ilm.core.tools.DemoDataGenerator" classpath="${build}/core" fork="true" failonerror="true">
+            <arg value="demo-data"/>
+        </java>
+    </target>
+
+    <target name="test" depends="demo-data" description="Run parsing, training and scoring on the demo data">
+        <java classname="com.ilm.core.tools.EngineSelfTest" classpath="${build}/core" fork="true" failonerror="true">
+            <arg value="demo-data/web-user.log"/>
+            <arg value="demo-data/web-security.log"/>
+            <arg value="demo-data/user_activity.csv"/>
+            <arg value="--top=8"/>
+        </java>
+    </target>
+
+    <target name="hash-password" depends="compile-core" description="Create a PBKDF2 hash for auth.local.admin.hash">
+        <echo message="Run this in a terminal (Ant cannot hide typed passwords):"/>
+        <echo message="  java -cp ${build}/core com.ilm.core.auth.PasswordHasher"/>
+    </target>
+
+    <target name="check">
+        <available file="${catalina.home}/lib/servlet-api.jar" property="tomcat.ok"/>
+        <fail unless="tomcat.ok" message="Tomcat not found at ${catalina.home}. Set catalina.home in build.properties (it must contain lib/servlet-api.jar)."/>
+        <available file="${lib.runtime}/spring-webmvc-${spring.version}.jar" property="libs.ok"/>
+        <fail unless="libs.ok" message="Libraries are missing. Run 'ant resolve' first."/>
+        <available file="${vendor}/bootstrap.min.css" property="vendor.ok"/>
+        <fail unless="vendor.ok" message="web/assets/vendor/bootstrap.min.css is missing. Run 'ant resolve' first."/>
+    </target>
+
+    <target name="compile" depends="check" description="Compile everything">
+        <mkdir dir="${classes}"/>
+        <javac srcdir="${src}" destdir="${classes}" release="21" encoding="UTF-8" includeantruntime="false" debug="true">
+            <compilerarg value="-parameters"/>
+            <compilerarg value="-Xlint:all,-processing,-serial"/>
+            <classpath>
+                <fileset dir="${lib.runtime}" includes="*.jar"/>
+                <fileset dir="${catalina.home}/lib" includes="servlet-api.jar,jsp-api.jar,el-api.jar"/>
+            </classpath>
+        </javac>
+        <copy file="conf/ilm.properties" todir="${classes}"/>
+    </target>
+
+    <target name="war" depends="compile" description="Build dist/ilm.war">
+        <mkdir dir="${dist}"/>
+        <war destfile="${dist}/ilm.war" webxml="${web}/WEB-INF/web.xml">
+            <fileset dir="${web}" excludes="WEB-INF/web.xml"/>
+            <classes dir="${classes}"/>
+            <lib dir="${lib.runtime}" includes="*.jar"/>
+        </war>
+        <echo message="Built ${dist}/ilm.war"/>
+    </target>
+
+    <target name="deploy" depends="war" description="Copy the WAR and the JDBC driver into Tomcat">
+        <copy todir="${catalina.home}/lib"><fileset dir="${lib.tomcat}" includes="postgresql-*.jar"/></copy>
+        <copy file="${dist}/ilm.war" todir="${catalina.home}/webapps"/>
+        <echo message="Deployed. Restart Tomcat if the JDBC driver was just added."/>
+    </target>
+
+    <target name="clean" description="Remove build output (keeps downloaded libraries)">
+        <delete dir="${build}"/>
+        <delete dir="${dist}"/>
+    </target>
+</project>

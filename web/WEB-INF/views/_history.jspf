@@ -1,0 +1,24 @@
+<div class="panel">
+    <h2>Recent logins of this user</h2>
+    <div class="hint">The latest events up to this one, newest first</div>
+    <c:choose>
+        <c:when test="${empty history}"><div class="empty">No earlier events for this user ID.</div></c:when>
+        <c:otherwise>
+            <table class="table table-sm table-hover">
+                <thead><tr><th>Time</th><th>Application</th><th>Event</th><th>Result</th><th>Risk score</th><th></th></tr></thead>
+                <tbody>
+                <c:forEach var="h" items="${history}">
+                    <tr>
+                        <td class="text-nowrap"><fmt:formatDate value="${h.event_time}" pattern="EEE d MMM yyyy HH:mm:ss"/></td>
+                        <td><c:out value="${h.app_code}"/></td>
+                        <td>${h.event_type == 'LOGIN' ? 'Login' : h.event_type == 'LOGOUT' ? 'Logout' : 'Unauthorized access'}</td>
+                        <td><span class="state state-${h.auth_result}">${h.auth_result == 'SUCCESS' ? 'Success' : h.auth_result == 'FAILED' ? 'Failed' : 'Unknown'}</span></td>
+                        <td><span data-meter="${h.risk_score}">${h.risk_score}</span></td>
+                        <td><a href="${ctx}/events/${h.id}">Details</a></td>
+                    </tr>
+                </c:forEach>
+                </tbody>
+            </table>
+        </c:otherwise>
+    </c:choose>
+</div>

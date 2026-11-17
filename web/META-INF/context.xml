@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Used only when no $CATALINA_BASE/conf/Catalina/localhost/ilm.xml exists. The database
+     connection (jdbc/ilm) must be defined there: see conf/tomcat-context-example.xml. -->
+<Context>
+    <CookieProcessor sameSiteCookies="lax"/>
+</Context>

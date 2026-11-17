@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copy to  $CATALINA_BASE/conf/Catalina/localhost/ilm.xml  (the file name must match the WAR name)
+  and set the real database address and password. chmod 600, owned by the Tomcat user.
+  The PostgreSQL driver jar must be in $CATALINA_HOME/lib ("ant deploy" copies it).
+-->
+<Context>
+    <!-- Session cookie is not sent on requests coming from other sites. -->
+    <CookieProcessor sameSiteCookies="lax"/>
+
+    <!-- ILM's own database. Use sslmode=verify-full when the database is on another server. -->
+    <Resource name="jdbc/ilm" auth="Container" type="javax.sql.DataSource"
+              driverClassName="org.postgresql.Driver"
+              url="jdbc:postgresql://localhost:5432/ilm"
+              username="ilm" password="CHANGE_ME"
+              maxTotal="20" maxIdle="5" maxWaitMillis="10000"
+              validationQuery="SELECT 1" testOnBorrow="true"/>
+
+    <!-- Optional, for ingest.mode=realtime: READ-ONLY account on the Audit Trail Integrator database.
+    <Resource name="jdbc/ati" auth="Container" type="javax.sql.DataSource"
+              driverClassName="org.postgresql.Driver"
+              url="jdbc:postgresql://ati-db.corp.local:5432/ati?sslmode=verify-full"
+              username="ilm_reader" password="CHANGE_ME"
+              maxTotal="3" maxIdle="1" maxWaitMillis="10000" defaultReadOnly="true"
+              validationQuery="SELECT 1" testOnBorrow="true"/>
+    -->
+</Context>

@@ -1,0 +1,13 @@
+<c:if test="${pages > 1}">
+    <nav class="d-flex align-items-center gap-3 mt-3" aria-label="Pages">
+        <c:choose>
+            <c:when test="${page > 1}"><a class="btn btn-sm btn-outline-primary" href="?${qs}page=${page - 1}">Previous</a></c:when>
+            <c:otherwise><span class="btn btn-sm btn-outline-secondary disabled">Previous</span></c:otherwise>
+        </c:choose>
+        <span>Page ${page} of ${pages}</span>
+        <c:choose>
+            <c:when test="${page < pages}"><a class="btn btn-sm btn-outline-primary" href="?${qs}page=${page + 1}">Next</a></c:when>
+            <c:otherwise><span class="btn btn-sm btn-outline-secondary disabled">Next</span></c:otherwise>
+        </c:choose>
+    </nav>
+</c:if>

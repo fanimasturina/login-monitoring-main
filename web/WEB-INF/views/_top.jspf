@@ -1,0 +1,48 @@
+<fmt:setLocale value="en_GB" scope="request"/>
+<c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title><c:out value="${pageTitle}"/> - Login Monitoring</title>
+    <link rel="stylesheet" href="${ctx}/assets/vendor/bootstrap.min.css">
+    <link rel="stylesheet" href="${ctx}/assets/css/app.css">
+</head>
+<body>
+<div class="shell">
+    <aside class="side">
+        <div class="brand">Login Monitoring<small>Risk detection for enterprise systems</small></div>
+        <nav aria-label="Main">
+            <a href="${ctx}/dashboard" class="${fn:startsWith(nav, '/dashboard') ? 'on' : ''}">Dashboard</a>
+            <a href="${ctx}/alerts" class="${fn:startsWith(nav, '/alerts') ? 'on' : ''}">Alerts</a>
+            <a href="${ctx}/events" class="${fn:startsWith(nav, '/events') ? 'on' : ''}">Login events</a>
+            <a href="${ctx}/reports" class="${fn:startsWith(nav, '/reports') ? 'on' : ''}">Reports</a>
+            <c:if test="${canUpload}">
+                <a href="${ctx}/upload" class="${fn:startsWith(nav, '/upload') ? 'on' : ''}">Upload data</a>
+            </c:if>
+            <c:if test="${isAdmin or canAudit}">
+                <div class="group">Administration</div>
+            </c:if>
+            <c:if test="${isAdmin}">
+                <a href="${ctx}/admin/settings" class="${fn:startsWith(nav, '/admin/settings') ? 'on' : ''}">Settings</a>
+                <a href="${ctx}/admin/users" class="${fn:startsWith(nav, '/admin/users') ? 'on' : ''}">Users</a>
+                <a href="${ctx}/admin/model" class="${fn:startsWith(nav, '/admin/model') ? 'on' : ''}">Model and data</a>
+            </c:if>
+            <c:if test="${canAudit}">
+                <a href="${ctx}/admin/audit" class="${fn:startsWith(nav, '/admin/audit') ? 'on' : ''}">Audit trail</a>
+            </c:if>
+        </nav>
+        <div class="who">
+            Signed in as
+            <strong><c:out value="${me}"/></strong>
+            <c:out value="${role}"/><c:if test="${masked}"> (personal data masked)</c:if>
+            <form method="post" action="${ctx}/logout">
+                <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}">
+                <button class="btn btn-sm btn-outline-light" type="submit">Sign out</button>
+            </form>
+        </div>
+    </aside>
+    <main class="main">
+        <c:if test="${not empty ok}"><div class="alert alert-success" role="status"><c:out value="${ok}"/></div></c:if>
+        <c:if test="${not empty err}"><div class="alert alert-danger" role="alert"><c:out value="${err}"/></div></c:if>
